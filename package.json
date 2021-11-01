@@ -14,5 +14,9 @@
         "tsify": "^5.0.4",
         "typescript": "^4.4.4",
         "ytdl-core": "^4.9.1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/mrgick/ytdl-core-info-browser.git"
     }
 }
