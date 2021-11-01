@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <script src="./dist/ytdl.js"></script>
+    <script>
+        const ytdl = window.require('ytdl-core-browser')({
+            proxyUrl: 'https://cors-anywhere.herokuapp.com/',
+            // proxyquireStubs: {}, arguments mapped directly to proxyquireify
+            // For more info, see https://www.npmjs.com/package/proxyquireify
+        });
+
+        ytdl
+            .getInfo('https://www.youtube.com/watch?v=WPdbEbwNTcU')
+            .then(info => console.log(info))
+            .catch(err => { throw err; });
+    </script>
+</body>
+
+</html>

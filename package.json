@@ -1,0 +1,18 @@
+{
+    "name": "ytdl-core-info-browser",
+    "version": "1.0.1",
+    "main": "./dist/ytdl.js",
+    "license": "MIT",
+    "scripts": {
+        "build": "node ./build.js"
+    },
+    "devDependencies": {
+        "@types/node": "^16.11.6",
+        "browserify": "^17.0.0",
+        "proxyquireify": "^3.2.1",
+        "replace-in-file": "^6.3.2",
+        "tsify": "^5.0.4",
+        "typescript": "^4.4.4",
+        "ytdl-core": "^4.9.1"
+    }
+}
