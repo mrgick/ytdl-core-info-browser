@@ -5,7 +5,7 @@ const fs = require('fs');
 const replace = require('replace-in-file');
 
 browserify()
-    .require('./index.ts', {
+    .require('./yt_bundle/ytdl.ts', {
         expose: 'ytdl-core-browser'
     })
     .plugin(tsify, {
@@ -17,6 +17,19 @@ browserify()
     .bundle()
     .pipe(fs.createWriteStream('./dist/ytdl.js'));
 
+
+browserify()
+    .require('./yt_bundle/ytpl.ts', {
+        expose: 'ytpl-browser'
+    })
+    .plugin(tsify, {
+        declaration: true,
+        declarationMap: true,
+        sourceMap: true
+    })
+    .plugin(proxyquire.plugin)
+    .bundle()
+    .pipe(fs.createWriteStream('./dist/ytpl.js'));
 
 async function replace_env() {
     function sleep(ms) {
