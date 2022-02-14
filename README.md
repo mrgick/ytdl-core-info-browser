@@ -1,6 +1,6 @@
 # Disclamer
-This is a [fork](https://www.npmjs.com/package/ytdl-core-browser).
-By November 1, 2021, it is working.
+This is based on a [fork](https://www.npmjs.com/package/ytdl-core-browser).
+By February 14, 2022, it is working.
 
 # Browser Youtube Downloader
 This library is a tiny wrapper around the [ytdl-core](https://www.npmjs.com/package/ytdl-core) library to make it work in the browser.
