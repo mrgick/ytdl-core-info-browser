@@ -2953,7 +2953,7 @@ class DashMPDParser extends stream_1.Writable {
         this.on('finish', onEnd);
     }
     _write(chunk, encoding, callback) {
-        this._parser.write(chunk, encoding);
+        this._parser.write(chunk);
         callback();
     }
 }
@@ -2975,7 +2975,7 @@ const supportedParsers = {
     'dash-mpd': dash_mpd_parser_1.default,
 };
 let m3u8stream = ((playlistURL, options = {}) => {
-    const stream = new stream_1.PassThrough();
+    const stream = new stream_1.PassThrough({ highWaterMark: options.highWaterMark });
     const chunkReadahead = options.chunkReadahead || 3;
     // 20 seconds.
     const liveBuffer = options.liveBuffer || 20000;
@@ -3029,9 +3029,6 @@ let m3u8stream = ((playlistURL, options = {}) => {
         });
     }, { concurrency: chunkReadahead });
     const onError = (err) => {
-        if (ended) {
-            return;
-        }
         stream.emit('error', err);
         // Stop on any error.
         stream.end();
@@ -3136,6 +3133,7 @@ let m3u8stream = ((playlistURL, options = {}) => {
         currPlaylist === null || currPlaylist === void 0 ? void 0 : currPlaylist.destroy();
         currSegment === null || currSegment === void 0 ? void 0 : currSegment.destroy();
         stream_1.PassThrough.prototype.end.call(stream, null);
+        return stream;
     };
     return stream;
 });
@@ -3580,10 +3578,6 @@ function Miniget(url, options = {}) {
         }
         const onError = (err) => {
             if (stream.destroyed || stream.readableEnded) {
-                return;
-            }
-            // Needed for node v10.
-            if (stream._readableState.ended) {
                 return;
             }
             cleanup();
@@ -9692,7 +9686,7 @@ http.METHODS = [
 	'UNSUBSCRIBE'
 ]
 }).call(this)}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./lib/request":44,"./lib/response":45,"builtin-status-codes":4,"url":63,"xtend":66}],43:[function(require,module,exports){
+},{"./lib/request":44,"./lib/response":45,"builtin-status-codes":4,"url":63,"xtend":67}],43:[function(require,module,exports){
 (function (global){(function (){
 exports.fetch = isFunction(global.fetch) && isFunction(global.ReadableStream)
 
@@ -11565,6 +11559,157 @@ function config (name) {
 
 }).call(this)}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 },{}],66:[function(require,module,exports){
+var indexOf = function (xs, item) {
+    if (xs.indexOf) return xs.indexOf(item);
+    else for (var i = 0; i < xs.length; i++) {
+        if (xs[i] === item) return i;
+    }
+    return -1;
+};
+var Object_keys = function (obj) {
+    if (Object.keys) return Object.keys(obj)
+    else {
+        var res = [];
+        for (var key in obj) res.push(key)
+        return res;
+    }
+};
+
+var forEach = function (xs, fn) {
+    if (xs.forEach) return xs.forEach(fn)
+    else for (var i = 0; i < xs.length; i++) {
+        fn(xs[i], i, xs);
+    }
+};
+
+var defineProp = (function() {
+    try {
+        Object.defineProperty({}, '_', {});
+        return function(obj, name, value) {
+            Object.defineProperty(obj, name, {
+                writable: true,
+                enumerable: false,
+                configurable: true,
+                value: value
+            })
+        };
+    } catch(e) {
+        return function(obj, name, value) {
+            obj[name] = value;
+        };
+    }
+}());
+
+var globals = ['Array', 'Boolean', 'Date', 'Error', 'EvalError', 'Function',
+'Infinity', 'JSON', 'Math', 'NaN', 'Number', 'Object', 'RangeError',
+'ReferenceError', 'RegExp', 'String', 'SyntaxError', 'TypeError', 'URIError',
+'decodeURI', 'decodeURIComponent', 'encodeURI', 'encodeURIComponent', 'escape',
+'eval', 'isFinite', 'isNaN', 'parseFloat', 'parseInt', 'undefined', 'unescape'];
+
+function Context() {}
+Context.prototype = {};
+
+var Script = exports.Script = function NodeScript (code) {
+    if (!(this instanceof Script)) return new Script(code);
+    this.code = code;
+};
+
+Script.prototype.runInContext = function (context) {
+    if (!(context instanceof Context)) {
+        throw new TypeError("needs a 'context' argument.");
+    }
+    
+    var iframe = document.createElement('iframe');
+    if (!iframe.style) iframe.style = {};
+    iframe.style.display = 'none';
+    
+    document.body.appendChild(iframe);
+    
+    var win = iframe.contentWindow;
+    var wEval = win.eval, wExecScript = win.execScript;
+
+    if (!wEval && wExecScript) {
+        // win.eval() magically appears when this is called in IE:
+        wExecScript.call(win, 'null');
+        wEval = win.eval;
+    }
+    
+    forEach(Object_keys(context), function (key) {
+        win[key] = context[key];
+    });
+    forEach(globals, function (key) {
+        if (context[key]) {
+            win[key] = context[key];
+        }
+    });
+    
+    var winKeys = Object_keys(win);
+
+    var res = wEval.call(win, this.code);
+    
+    forEach(Object_keys(win), function (key) {
+        // Avoid copying circular objects like `top` and `window` by only
+        // updating existing context properties or new properties in the `win`
+        // that was only introduced after the eval.
+        if (key in context || indexOf(winKeys, key) === -1) {
+            context[key] = win[key];
+        }
+    });
+
+    forEach(globals, function (key) {
+        if (!(key in context)) {
+            defineProp(context, key, win[key]);
+        }
+    });
+    
+    document.body.removeChild(iframe);
+    
+    return res;
+};
+
+Script.prototype.runInThisContext = function () {
+    return eval(this.code); // maybe...
+};
+
+Script.prototype.runInNewContext = function (context) {
+    var ctx = Script.createContext(context);
+    var res = this.runInContext(ctx);
+
+    if (context) {
+        forEach(Object_keys(ctx), function (key) {
+            context[key] = ctx[key];
+        });
+    }
+
+    return res;
+};
+
+forEach(Object_keys(Script.prototype), function (name) {
+    exports[name] = Script[name] = function (code) {
+        var s = Script(code);
+        return s[name].apply(s, [].slice.call(arguments, 1));
+    };
+});
+
+exports.isContext = function (context) {
+    return context instanceof Context;
+};
+
+exports.createScript = function (code) {
+    return exports.Script(code);
+};
+
+exports.createContext = Script.createContext = function (context) {
+    var copy = new Context();
+    if(typeof context === 'object') {
+        forEach(Object_keys(context), function (key) {
+            copy[key] = context[key];
+        });
+    }
+    return copy;
+};
+
+},{}],67:[function(require,module,exports){
 module.exports = extend
 
 var hasOwnProperty = Object.prototype.hasOwnProperty;
@@ -11585,7 +11730,7 @@ function extend() {
     return target
 }
 
-},{}],67:[function(require,module,exports){
+},{}],68:[function(require,module,exports){
 const { setTimeout } = require('timers');
 
 // A cache that expires.
@@ -11641,7 +11786,7 @@ module.exports = class Cache extends Map {
   }
 };
 
-},{"timers":62}],68:[function(require,module,exports){
+},{"timers":62}],69:[function(require,module,exports){
 const utils = require('./utils');
 const FORMATS = require('./formats');
 
@@ -11893,7 +12038,7 @@ exports.addFormatMeta = format => {
   return format;
 };
 
-},{"./formats":69,"./utils":75}],69:[function(require,module,exports){
+},{"./formats":70,"./utils":76}],70:[function(require,module,exports){
 /**
  * http://en.wikipedia.org/wiki/YouTube#Quality_and_formats
  */
@@ -12419,7 +12564,7 @@ module.exports = {
 
 };
 
-},{}],70:[function(require,module,exports){
+},{}],71:[function(require,module,exports){
 (function (setImmediate){(function (){
 const PassThrough = require('stream').PassThrough;
 const getInfo = require('./info');
@@ -12630,7 +12775,7 @@ ytdl.downloadFromInfo = (info, options) => {
 };
 
 }).call(this)}).call(this,require("timers").setImmediate)
-},{"../package.json":76,"./format-utils":68,"./info":72,"./sig":73,"./url-utils":74,"./utils":75,"m3u8stream":12,"miniget":17,"stream":27,"timers":62}],71:[function(require,module,exports){
+},{"../package.json":77,"./format-utils":69,"./info":73,"./sig":74,"./url-utils":75,"./utils":76,"m3u8stream":12,"miniget":17,"stream":27,"timers":62}],72:[function(require,module,exports){
 const utils = require('./utils');
 const qs = require('querystring');
 const { parseTimestamp } = require('m3u8stream');
@@ -12997,7 +13142,7 @@ exports.getChapters = info => {
   }));
 };
 
-},{"./utils":75,"m3u8stream":12,"querystring":24}],72:[function(require,module,exports){
+},{"./utils":76,"m3u8stream":12,"querystring":24}],73:[function(require,module,exports){
 const querystring = require('querystring');
 const sax = require('sax');
 const miniget = require('miniget');
@@ -13486,232 +13631,113 @@ exports.validateURL = urlUtils.validateURL;
 exports.getURLVideoID = urlUtils.getURLVideoID;
 exports.getVideoID = urlUtils.getVideoID;
 
-},{"./cache":67,"./format-utils":68,"./info-extras":71,"./sig":73,"./url-utils":74,"./utils":75,"miniget":17,"querystring":24,"sax":26,"timers":62}],73:[function(require,module,exports){
+},{"./cache":68,"./format-utils":69,"./info-extras":72,"./sig":74,"./url-utils":75,"./utils":76,"miniget":17,"querystring":24,"sax":26,"timers":62}],74:[function(require,module,exports){
 const querystring = require('querystring');
 const Cache = require('./cache');
 const utils = require('./utils');
+const vm = require('vm');
 
-
-// A shared cache to keep track of html5player.js tokens.
+// A shared cache to keep track of html5player js functions.
 exports.cache = new Cache();
 
-
 /**
- * Extract signature deciphering tokens from html5player file.
+ * Extract signature deciphering and n parameter transform functions from html5player file.
  *
  * @param {string} html5playerfile
  * @param {Object} options
  * @returns {Promise<Array.<string>>}
  */
-exports.getTokens = (html5playerfile, options) => exports.cache.getOrSet(html5playerfile, async() => {
+exports.getFunctions = (html5playerfile, options) => exports.cache.getOrSet(html5playerfile, async() => {
   const body = await utils.exposedMiniget(html5playerfile, options).text();
-  const tokens = exports.extractActions(body);
-  if (!tokens || !tokens.length) {
-    throw Error('Could not extract signature deciphering actions');
+  const functions = exports.extractFunctions(body);
+  if (!functions || !functions.length) {
+    throw Error('Could not extract functions');
   }
-  exports.cache.set(html5playerfile, tokens);
-  return tokens;
+  exports.cache.set(html5playerfile, functions);
+  return functions;
 });
 
-
 /**
- * Decipher a signature based on action tokens.
- *
- * @param {Array.<string>} tokens
- * @param {string} sig
- * @returns {string}
- */
-exports.decipher = (tokens, sig) => {
-  sig = sig.split('');
-  for (let i = 0, len = tokens.length; i < len; i++) {
-    let token = tokens[i], pos;
-    switch (token[0]) {
-      case 'r':
-        sig = sig.reverse();
-        break;
-      case 'w':
-        pos = ~~token.slice(1);
-        sig = swapHeadAndPosition(sig, pos);
-        break;
-      case 's':
-        pos = ~~token.slice(1);
-        sig = sig.slice(pos);
-        break;
-      case 'p':
-        pos = ~~token.slice(1);
-        sig.splice(0, pos);
-        break;
-    }
-  }
-  return sig.join('');
-};
-
-
-/**
- * Swaps the first element of an array with one of given position.
- *
- * @param {Array.<Object>} arr
- * @param {number} position
- * @returns {Array.<Object>}
- */
-const swapHeadAndPosition = (arr, position) => {
-  const first = arr[0];
-  arr[0] = arr[position % arr.length];
-  arr[position] = first;
-  return arr;
-};
-
-
-const jsVarStr = '[a-zA-Z_\\$][a-zA-Z_0-9]*';
-const jsSingleQuoteStr = `'[^'\\\\]*(:?\\\\[\\s\\S][^'\\\\]*)*'`;
-const jsDoubleQuoteStr = `"[^"\\\\]*(:?\\\\[\\s\\S][^"\\\\]*)*"`;
-const jsQuoteStr = `(?:${jsSingleQuoteStr}|${jsDoubleQuoteStr})`;
-const jsKeyStr = `(?:${jsVarStr}|${jsQuoteStr})`;
-const jsPropStr = `(?:\\.${jsVarStr}|\\[${jsQuoteStr}\\])`;
-const jsEmptyStr = `(?:''|"")`;
-const reverseStr = ':function\\(a\\)\\{' +
-  '(?:return )?a\\.reverse\\(\\)' +
-'\\}';
-const sliceStr = ':function\\(a,b\\)\\{' +
-  'return a\\.slice\\(b\\)' +
-'\\}';
-const spliceStr = ':function\\(a,b\\)\\{' +
-  'a\\.splice\\(0,b\\)' +
-'\\}';
-const swapStr = ':function\\(a,b\\)\\{' +
-  'var c=a\\[0\\];a\\[0\\]=a\\[b(?:%a\\.length)?\\];a\\[b(?:%a\\.length)?\\]=c(?:;return a)?' +
-'\\}';
-const actionsObjRegexp = new RegExp(
-  `var (${jsVarStr})=\\{((?:(?:${
-    jsKeyStr}${reverseStr}|${
-    jsKeyStr}${sliceStr}|${
-    jsKeyStr}${spliceStr}|${
-    jsKeyStr}${swapStr
-  }),?\\r?\\n?)+)\\};`);
-const actionsFuncRegexp = new RegExp(`${`function(?: ${jsVarStr})?\\(a\\)\\{` +
-    `a=a\\.split\\(${jsEmptyStr}\\);\\s*` +
-    `((?:(?:a=)?${jsVarStr}`}${
-  jsPropStr
-}\\(a,\\d+\\);)+)` +
-    `return a\\.join\\(${jsEmptyStr}\\)` +
-  `\\}`);
-const reverseRegexp = new RegExp(`(?:^|,)(${jsKeyStr})${reverseStr}`, 'm');
-const sliceRegexp = new RegExp(`(?:^|,)(${jsKeyStr})${sliceStr}`, 'm');
-const spliceRegexp = new RegExp(`(?:^|,)(${jsKeyStr})${spliceStr}`, 'm');
-const swapRegexp = new RegExp(`(?:^|,)(${jsKeyStr})${swapStr}`, 'm');
-
-
-/**
- * Extracts the actions that should be taken to decipher a signature.
- *
- * This searches for a function that performs string manipulations on
- * the signature. We already know what the 3 possible changes to a signature
- * are in order to decipher it. There is
- *
- * * Reversing the string.
- * * Removing a number of characters from the beginning.
- * * Swapping the first character with another position.
- *
- * Note, `Array#slice()` used to be used instead of `Array#splice()`,
- * it's kept in case we encounter any older html5player files.
- *
- * After retrieving the function that does this, we can see what actions
- * it takes on a signature.
+ * Extracts the actions that should be taken to decipher a signature
+ * and tranform the n parameter
  *
  * @param {string} body
  * @returns {Array.<string>}
  */
-exports.extractActions = body => {
-  const objResult = actionsObjRegexp.exec(body);
-  const funcResult = actionsFuncRegexp.exec(body);
-  if (!objResult || !funcResult) { return null; }
-
-  const obj = objResult[1].replace(/\$/g, '\\$');
-  const objBody = objResult[2].replace(/\$/g, '\\$');
-  const funcBody = funcResult[1].replace(/\$/g, '\\$');
-
-  let result = reverseRegexp.exec(objBody);
-  const reverseKey = result && result[1]
-    .replace(/\$/g, '\\$')
-    .replace(/\$|^'|^"|'$|"$/g, '');
-  result = sliceRegexp.exec(objBody);
-  const sliceKey = result && result[1]
-    .replace(/\$/g, '\\$')
-    .replace(/\$|^'|^"|'$|"$/g, '');
-  result = spliceRegexp.exec(objBody);
-  const spliceKey = result && result[1]
-    .replace(/\$/g, '\\$')
-    .replace(/\$|^'|^"|'$|"$/g, '');
-  result = swapRegexp.exec(objBody);
-  const swapKey = result && result[1]
-    .replace(/\$/g, '\\$')
-    .replace(/\$|^'|^"|'$|"$/g, '');
-
-  const keys = `(${[reverseKey, sliceKey, spliceKey, swapKey].join('|')})`;
-  const myreg = `(?:a=)?${obj
-  }(?:\\.${keys}|\\['${keys}'\\]|\\["${keys}"\\])` +
-    `\\(a,(\\d+)\\)`;
-  const tokenizeRegexp = new RegExp(myreg, 'g');
-  const tokens = [];
-  while ((result = tokenizeRegexp.exec(funcBody)) !== null) {
-    let key = result[1] || result[2] || result[3];
-    switch (key) {
-      case swapKey:
-        tokens.push(`w${result[4]}`);
-        break;
-      case reverseKey:
-        tokens.push('r');
-        break;
-      case sliceKey:
-        tokens.push(`s${result[4]}`);
-        break;
-      case spliceKey:
-        tokens.push(`p${result[4]}`);
-        break;
+exports.extractFunctions = body => {
+  const functions = [];
+  const extractManipulations = caller => {
+    const functionName = utils.between(caller, `a=a.split("");`, `.`);
+    if (!functionName) return '';
+    const functionStart = `var ${functionName}={`;
+    const ndx = body.indexOf(functionStart);
+    if (ndx < 0) return '';
+    const subBody = body.slice(ndx + functionStart.length - 1);
+    return `var ${functionName}=${utils.cutAfterJSON(subBody)}`;
+  };
+  const extractDecipher = () => {
+    const functionName = utils.between(body, `a.set("alr","yes");c&&(c=`, `(decodeURIC`);
+    if (functionName && functionName.length) {
+      const functionStart = `${functionName}=function(a)`;
+      const ndx = body.indexOf(functionStart);
+      if (ndx >= 0) {
+        const subBody = body.slice(ndx + functionStart.length);
+        let functionBody = `var ${functionStart}${utils.cutAfterJSON(subBody)}`;
+        functionBody = `${extractManipulations(functionBody)};${functionBody};${functionName}(sig);`;
+        functions.push(functionBody);
+      }
     }
-  }
-  return tokens;
+  };
+  const extractNCode = () => {
+    let functionName = utils.between(body, `&&(b=a.get("n"))&&(b=`, `(b)`);
+    if (functionName.includes('[')) functionName = utils.between(body, `${functionName.split('[')[0]}=[`, `]`);
+    if (functionName && functionName.length) {
+      const functionStart = `${functionName}=function(a)`;
+      const ndx = body.indexOf(functionStart);
+      if (ndx >= 0) {
+        const subBody = body.slice(ndx + functionStart.length);
+        const functionBody = `var ${functionStart}${utils.cutAfterJSON(subBody)};${functionName}(ncode);`;
+        functions.push(functionBody);
+      }
+    }
+  };
+  extractDecipher();
+  extractNCode();
+  return functions;
 };
 
-
 /**
+ * Apply decipher and n-transform to individual format
+ *
  * @param {Object} format
- * @param {string} sig
+ * @param {vm.Script} decipherScript
+ * @param {vm.Script} nTransformScript
  */
-exports.setDownloadURL = (format, sig) => {
-  let decodedUrl;
-  if (format.url) {
-    decodedUrl = format.url;
-  } else {
-    return;
-  }
-
-  try {
-    decodedUrl = decodeURIComponent(decodedUrl);
-  } catch (err) {
-    return;
-  }
-
-  // Make some adjustments to the final url.
-  const parsedUrl = new URL(decodedUrl);
-
-  // This is needed for a speedier download.
-  // See https://github.com/fent/node-ytdl-core/issues/127
-  parsedUrl.searchParams.set('ratebypass', 'yes');
-
-  if (sig) {
-    // When YouTube provides a `sp` parameter the signature `sig` must go
-    // into the parameter it specifies.
-    // See https://github.com/fent/node-ytdl-core/issues/417
-    parsedUrl.searchParams.set(format.sp || 'signature', sig);
-  }
-
-  format.url = parsedUrl.toString();
+exports.setDownloadURL = (format, decipherScript, nTransformScript) => {
+  const decipher = url => {
+    const args = querystring.parse(url);
+    if (!args.s || !decipherScript) return args.url;
+    const components = new URL(decodeURIComponent(args.url));
+    components.searchParams.set(args.sp ? args.sp : 'signature',
+      decipherScript.runInNewContext({ sig: decodeURIComponent(args.s) }));
+    return components.toString();
+  };
+  const ncode = url => {
+    const components = new URL(decodeURIComponent(url));
+    const n = components.searchParams.get('n');
+    if (!n || !nTransformScript) return url;
+    components.searchParams.set('n', nTransformScript.runInNewContext({ ncode: n }));
+    return components.toString();
+  };
+  const cipher = !format.url;
+  const url = format.url || format.signatureCipher || format.cipher;
+  format.url = cipher ? ncode(decipher(url)) : ncode(url);
+  delete format.signatureCipher;
+  delete format.cipher;
 };
 
-
 /**
- * Applies `sig.decipher()` to all format URL's.
+ * Applies decipher and n parameter transforms to all format URL's.
  *
  * @param {Array.<Object>} formats
  * @param {string} html5player
@@ -13719,22 +13745,17 @@ exports.setDownloadURL = (format, sig) => {
  */
 exports.decipherFormats = async(formats, html5player, options) => {
   let decipheredFormats = {};
-  let tokens = await exports.getTokens(html5player, options);
+  let functions = await exports.getFunctions(html5player, options);
+  const decipherScript = functions.length ? new vm.Script(functions[0]) : null;
+  const nTransformScript = functions.length > 1 ? new vm.Script(functions[1]) : null;
   formats.forEach(format => {
-    let cipher = format.signatureCipher || format.cipher;
-    if (cipher) {
-      Object.assign(format, querystring.parse(cipher));
-      delete format.signatureCipher;
-      delete format.cipher;
-    }
-    const sig = tokens && format.s ? exports.decipher(tokens, format.s) : null;
-    exports.setDownloadURL(format, sig);
+    exports.setDownloadURL(format, decipherScript, nTransformScript);
     decipheredFormats[format.url] = format;
   });
   return decipheredFormats;
 };
 
-},{"./cache":67,"./utils":75,"querystring":24}],74:[function(require,module,exports){
+},{"./cache":68,"./utils":76,"querystring":24,"vm":66}],75:[function(require,module,exports){
 /**
  * Get video ID.
  *
@@ -13827,7 +13848,7 @@ exports.validateURL = string => {
   }
 };
 
-},{}],75:[function(require,module,exports){
+},{}],76:[function(require,module,exports){
 (function (process){(function (){
 const miniget = require('miniget');
 
@@ -14014,7 +14035,7 @@ exports.checkForUpdates = () => {
 };
 
 }).call(this)}).call(this,require('_process'))
-},{"../package.json":76,"_process":19,"miniget":17}],76:[function(require,module,exports){
+},{"../package.json":77,"_process":19,"miniget":17}],77:[function(require,module,exports){
 module.exports={
   "name": "ytdl-core",
   "description": "YouTube video downloader in pure javascript.",
@@ -14023,7 +14044,7 @@ module.exports={
     "video",
     "download"
   ],
-  "version": "4.9.1",
+  "version": "4.10.1",
   "repository": {
     "type": "git",
     "url": "git://github.com/fent/node-ytdl-core.git"
@@ -14052,7 +14073,7 @@ module.exports={
     "lint:typings:fix": "tslint --fix typings/index.d.ts"
   },
   "dependencies": {
-    "m3u8stream": "^0.8.3",
+    "m3u8stream": "^0.8.6",
     "miniget": "^4.0.0",
     "sax": "^1.1.3"
   },
@@ -14100,4 +14121,4 @@ module.exports = function (options) {
         } }, (options.proxyquireStubs || {})));
 };
 
-},{"m3u8stream":12,"miniget":17,"proxyquireify":20,"ytdl-core":70}]},{},[]);
+},{"m3u8stream":12,"miniget":17,"proxyquireify":20,"ytdl-core":71}]},{},[]);
