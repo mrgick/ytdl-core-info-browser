@@ -17,20 +17,6 @@ browserify()
     .bundle()
     .pipe(fs.createWriteStream('./dist/ytdl.js'));
 
-
-browserify()
-    .require('./yt_bundle/ytpl.ts', {
-        expose: 'ytpl-browser'
-    })
-    .plugin(tsify, {
-        declaration: true,
-        declarationMap: true,
-        sourceMap: true
-    })
-    .plugin(proxyquire.plugin)
-    .bundle()
-    .pipe(fs.createWriteStream('./dist/ytpl.js'));
-
 async function replace_env() {
     function sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
@@ -54,3 +40,32 @@ async function replace_env() {
 };
 
 replace_env();
+
+
+browserify()
+    .require('./yt_bundle/ytpl.ts', {
+        expose: 'ytpl-browser'
+    })
+    .plugin(tsify, {
+        declaration: true,
+        declarationMap: true,
+        sourceMap: true
+    })
+    .plugin(proxyquire.plugin)
+    .bundle()
+    .pipe(fs.createWriteStream('./dist/ytpl.js'));
+
+
+
+browserify()
+    .require('./yt_bundle/ytsr.ts', {
+        expose: 'ytsr-browser'
+    })
+    .plugin(tsify, {
+        declaration: true,
+        declarationMap: true,
+        sourceMap: true
+    })
+    .plugin(proxyquire.plugin)
+    .bundle()
+    .pipe(fs.createWriteStream('./dist/ytsr.js'));

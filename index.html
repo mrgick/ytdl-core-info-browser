@@ -10,28 +10,33 @@
 <body>
     <script src="./dist/ytdl.js"></script>
     <script src="./dist/ytpl.js"></script>
+    <script src="./dist/ytsr.js"></script>
     <script>
+        const proxyUrl = 'https://cors-anywhere.herokuapp.com/'
+
         const ytdl = window.require('ytdl-core-browser')({
-            proxyUrl: 'https://cors-anywhere.herokuapp.com/',
-            // proxyquireStubs: {}, arguments mapped directly to proxyquireify
-            // For more info, see https://www.npmjs.com/package/proxyquireify
+            proxyUrl: proxyUrl,
         });
         const ytpl = window.require('ytpl-browser')({
-            proxyUrl: 'https://cors-anywhere.herokuapp.com/',
+            proxyUrl: proxyUrl,
+        });
+        const ytsr = window.require('ytsr-browser')({
+            proxyUrl: proxyUrl,
         });
 
-        async function test() {
-            info = await ytpl('https://www.youtube.com/watch?v=x9iR78Cww6w&list=PLlaN88a7y2_rosKX2WQt2VjFbjyDQXOkR',{pages:1});
-            console.log(info);
-            ytdl
+        ytsr('Rick Astley')
+            .then(info => console.log(info))
+            .catch(err => { throw err; });
+
+        ytpl('https://www.youtube.com/watch?v=x9iR78Cww6w&list=PLlaN88a7y2_rosKX2WQt2VjFbjyDQXOkR', { pages: 1 })
+            .then(info => console.log(info))
+            .catch(err => { throw err; });
+        ytdl
             .getInfo('https://www.youtube.com/watch?v=dQw4w9WgXcQ')
             .then(info => console.log(info))
             .catch(err => { throw err; });
-        }
 
-        window.onload = function () {test()}
-
-        </script>
+    </script>
 </body>
 
 </html>
