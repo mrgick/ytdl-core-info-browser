@@ -1,14 +1,12 @@
 # Disclamer
 This is based on a [fork](https://www.npmjs.com/package/ytdl-core-browser).
-By February 14, 2022, it is working.
+By March 12, 2022, it is working.
 
 # Browser Youtube Downloader
 This library is a tiny wrapper around the [ytdl-core](https://www.npmjs.com/package/ytdl-core) library to make it work in the browser.
-
-**Other methods than `.getInfo()` are not tested**. But we discourage using them in the browser.
-
+Also add other stuff - such as ytpl and ytsr.
 We don't care about bugs and issues, do what you want. **This library is just a proof of concept**.
-
+[free js static CDN](https://cdn.jsdelivr.net/npm/ytdl-core-info-browser@latest/)
 
 ***Have fun!*** 
 

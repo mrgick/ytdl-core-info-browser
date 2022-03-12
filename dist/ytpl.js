@@ -9876,7 +9876,7 @@ const QS = require('querystring');
 const PARSE_ITEM = require('./parseItem.js');
 const MINIGET = require('miniget');
 
-const YT_HOSTS = ['www.youtube.com', 'youtube.com', 'music.youtube.com'];
+const YT_HOSTS = ['www.youtube.com', 'youtube.com', 'music.youtube.com', 'youtu.be'];
 const BASE_PLIST_URL = 'https://www.youtube.com/playlist?';
 const BASE_API_URL = 'https://www.youtube.com/youtubei/v1/browse?key=';
 
@@ -10400,7 +10400,7 @@ exports._hidden = {
 },{"miniget":13}],65:[function(require,module,exports){
 module.exports={
   "name": "ytpl",
-  "version": "2.2.3",
+  "version": "2.3.0",
   "description": "Simple package to resolve YouTube playlists - no strings attached.",
   "keywords": [
     "youtube",
@@ -10443,7 +10443,7 @@ module.exports={
     "test:coverage": "npm run-script nyc:coverage && codecov"
   },
   "dependencies": {
-    "miniget": "^4.2.1"
+    "miniget": "^4.2.2"
   },
   "devDependencies": {
     "assert-diff": "^3.0.1",
