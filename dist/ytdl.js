@@ -13710,8 +13710,9 @@ exports.extractFunctions = body => {
       const functionStart = `${functionName}=function(a)`;
       const ndx = body.indexOf(functionStart);
       if (ndx >= 0) {
-        const subBody = body.slice(ndx + functionStart.length);
-        const functionBody = `var ${functionStart}${utils.cutAfterJSON(subBody)};${functionName}(ncode);`;
+        const end = body.indexOf('.join("")};', ndx);
+        const subBody = body.slice(ndx, end);
+        const functionBody = `${subBody}.join("")};${functionName}(ncode);`;
         functions.push(functionBody);
       }
     }
@@ -14132,7 +14133,7 @@ module.exports={
     "video",
     "download"
   ],
-  "version": "4.11.0",
+  "version": "0.0.0-development",
   "repository": {
     "type": "git",
     "url": "git://github.com/fent/node-ytdl-core.git"
