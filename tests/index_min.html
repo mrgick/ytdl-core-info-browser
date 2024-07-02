@@ -9,28 +9,13 @@
 
 <body>
     <script src="../dist/ytdl.min.js"></script>
-    <script src="../dist/ytpl.min.js"></script>
-    <script src="../dist/ytsr.min.js"></script>
     <script>
-        const proxyUrl = 'https://cors-anywhere.herokuapp.com/'
+        const proxyUrl = 'https://docker-nginx-cors.onrender.com/'
 
         const ytdl = window.require('ytdl-core-browser')({
             proxyUrl: proxyUrl,
         });
-        const ytpl = window.require('ytpl-browser')({
-            proxyUrl: proxyUrl,
-        });
-        const ytsr = window.require('ytsr-browser')({
-            proxyUrl: proxyUrl,
-        });
 
-        ytsr('Rick Astley')
-            .then(info => console.log(info))
-            .catch(err => { throw err; });
-
-        ytpl('https://www.youtube.com/watch?v=x9iR78Cww6w&list=PLlaN88a7y2_rosKX2WQt2VjFbjyDQXOkR', { pages: 1 })
-            .then(info => console.log(info))
-            .catch(err => { throw err; });
         ytdl
             .getInfo('https://www.youtube.com/watch?v=dQw4w9WgXcQ')
             .then(info => console.log(info))

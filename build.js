@@ -6,7 +6,6 @@ const replace = require('replace-in-file');
 const { minify } = require("terser");
 
 async function doBrowserify() {
-
     browserify()
         .require('./yt_bundle/ytdl.ts', {
             expose: 'ytdl-core-browser'
@@ -19,36 +18,6 @@ async function doBrowserify() {
         .plugin(proxyquire.plugin)
         .bundle()
         .pipe(fs.createWriteStream('./dist/ytdl.js'))
-
-
-
-    browserify()
-        .require('./yt_bundle/ytpl.ts', {
-            expose: 'ytpl-browser'
-        })
-        .plugin(tsify, {
-            declaration: true,
-            declarationMap: true,
-            sourceMap: true
-        })
-        .plugin(proxyquire.plugin)
-        .bundle()
-        .pipe(fs.createWriteStream('./dist/ytpl.js'));
-
-
-
-    browserify()
-        .require('./yt_bundle/ytsr.ts', {
-            expose: 'ytsr-browser'
-        })
-        .plugin(tsify, {
-            declaration: true,
-            declarationMap: true,
-            sourceMap: true
-        })
-        .plugin(proxyquire.plugin)
-        .bundle()
-        .pipe(fs.createWriteStream('./dist/ytsr.js'));
 }
 
 async function replaceEnv() {
@@ -84,8 +53,6 @@ async function minimizeFiles() {
     }
 
     doMinimize('ytdl.js', options)
-    doMinimize('ytpl.js', options)
-    doMinimize('ytsr.js', options)
 }
 
 
